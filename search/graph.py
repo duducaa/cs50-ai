@@ -1,5 +1,7 @@
 from typing import List, Dict
+import numpy as np
 import pandas as pd
+import cv2 as cv
 
 class Node:
     def __init__(self, x: float, y: float):
@@ -18,8 +20,9 @@ class Node:
             return self.x == value.x and self.y == value.y
         
 class Graph:
-    def __init__(self, csv_path: str):
-        self.nodes: List[Node] = []
+    def __init__(self, csv_path: str, nodes: List[Node] = []):
+        self.nodes: List[Node] = nodes
+        self.solve_path = csv_path
         self.dataframe: pd.DataFrame = pd.read_csv(csv_path, header=None)
                 
     def __str__(self):
@@ -55,20 +58,35 @@ class Graph:
                     nodes[(j - 1, i)].neighbors.append(nodes[(j, i)])
                 
         self.nodes: List[Node] = list(nodes.values())
-
-        with open("./search/nodes.txt", "w") as f:
-            for node in self.nodes:
-                f.write(f"{node}\n")
     
     # for very large graphs
     def search_node(self, node: Node) -> Node:
         return list(filter(lambda n: n == node, self.nodes))[0]
     
-    def draw_solve(self, visited_nodes: List[Node], solve_path: List[Node], solve_csv: str):
+    def draw_solve(self, visited_nodes: List[Node], solve_path: List[Node], solve_img: str, solve_csv: str):
+        df = self.dataframe.copy()
+        
         for node in visited_nodes:
-            self.dataframe.iloc[node.y, node.x] = "*"
+            df.iloc[node.y, node.x] = "*"
 
         for node in solve_path:
-            self.dataframe.iloc[node.y, node.x] = "o"
+            df.iloc[node.y, node.x] = "o"
             
         self.dataframe.to_csv(solve_csv, index=False, header=False)
+        
+        img = np.zeros_like(df.to_numpy(), shape=(df.shape[0], df.shape[1], 3), dtype=np.uint8)
+        
+        for i in range(df.shape[0]):
+            for j in range(df.shape[1]):
+                pixels = {
+                    "#": (0, 0, 0),
+                    "*": (255, 255, 0),
+                    "o": (255, 0, 0),
+                    "": (255, 255, 255),
+                    " ": (255, 255, 255)
+                }
+                img[i, j] = pixels[df.iloc[i, j]]
+        
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img = cv.resize(img, (10 * img.shape[0], 10 * img.shape[1]))
+        cv.imwrite(solve_img, img)
